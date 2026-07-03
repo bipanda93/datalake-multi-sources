@@ -1,4 +1,19 @@
-"""
-Micro-service Flask - expose GET /api/sellers
-TODO: coller ici le code (~15 lignes selon le rapport, section 3.2)
-"""
+from flask import Flask, jsonify
+import csv
+
+app = Flask(__name__)
+
+@app.route('/api/sellers', methods=['GET'])
+def get_sellers():
+    sellers = []
+    with open('/data/olist_sellers_dataset.csv') as f:
+        reader = csv.DictReader(f)
+        sellers = list(reader)
+    return jsonify(sellers)
+
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "ok"})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)

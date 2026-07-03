@@ -1,3 +1,136 @@
-# TODO: coller ici la configuration des 9 services
-# (postgres, postgres_source, mongodb, redis, minio, api_sellers,
-#  airflow-init, airflow, jenkins) - voir rapport section 3
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: datalake_postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - "5443:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres_source:
+    image: postgres:15
+    container_name: datalake_postgres_source
+    environment:
+      POSTGRES_USER: datalake
+      POSTGRES_PASSWORD: datalake
+      POSTGRES_DB: sales
+    ports:
+      - "5444:5432"
+    volumes:
+      - ./scripts/init_postgres.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U datalake -d sales"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7
+    container_name: datalake_mongodb
+    ports:
+      - "27019:27017"
+    environment:
+      MONGO_INITDB_DATABASE: datalake
+    volumes:
+      - ./scripts/init_mongo.js:/docker-entrypoint-initdb.d/init.js
+
+  redis:
+    image: redis:7
+    container_name: datalake_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+
+  minio:
+    image: minio/minio:latest
+    container_name: datalake_minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api_sellers:
+    build: ./api_service
+    container_name: datalake_api_sellers
+    ports:
+      - "5050:5000"
+    volumes:
+      - ./data:/data
+
+  airflow-init:
+    image: apache/airflow:2.9.0
+    container_name: datalake_airflow_init
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      bash -c "airflow db migrate"
+
+  airflow:
+    image: apache/airflow:2.9.0
+    container_name: datalake_airflow
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__WEBSERVER__WORKERS: '1'
+      AIRFLOW__WEBSERVER__WORKER_TIMEOUT: '300'
+      AIRFLOW__WEBSERVER__WEB_SERVER_MASTER_TIMEOUT: '300'
+    ports:
+      - "8184:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./data:/opt/airflow/data
+      - ./tests:/opt/airflow/tests
+      - ./requirements.txt:/requirements.txt
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    command: >
+      bash -c "pip install -r /requirements.txt --quiet &&
+               airflow users create --username admin --password admin --firstname Admin --lastname Admin --role Admin --email admin@admin.com || true &&
+               nohup airflow scheduler > /opt/airflow/logs/scheduler_std.log 2>&1 &
+               airflow webserver --port 8080 --workers 1"
+
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: datalake_jenkins
+    ports:
+      - "8090:8080"
+      - "50001:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - ./dags:/opt/airflow/dags
+      - ./tests:/opt/airflow/tests
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Xmx256m -Xms128m"
+
+volumes:
+  minio_data:
+  jenkins_home:
