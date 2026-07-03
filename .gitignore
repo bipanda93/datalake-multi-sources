@@ -1,0 +1,33 @@
+# Data (46+ Mo, exclu du repo — voir data/README.md)
+data/*.csv
+
+# Logs Airflow / Jenkins
+logs/*
+!logs/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Docker
+*.log
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Env / secrets
+.env
+*.env.local
+
+# Airflow runtime
+airflow.cfg
+airflow.db
+webserver_config.py
+standalone_admin_password.txt

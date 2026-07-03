@@ -1,0 +1,8 @@
+pandas
+pyarrow
+pymongo
+redis
+minio
+great-expectations
+requests
+pytest

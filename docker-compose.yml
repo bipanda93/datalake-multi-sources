@@ -1,0 +1,3 @@
+# TODO: coller ici la configuration des 9 services
+# (postgres, postgres_source, mongodb, redis, minio, api_sellers,
+#  airflow-init, airflow, jenkins) - voir rapport section 3

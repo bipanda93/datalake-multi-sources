@@ -1,0 +1,2 @@
+-- TODO: coller ici les CREATE TABLE (orders, customers, order_items)
+-- Voir rapport section 1.1 pour le mapping source -> destination
